@@ -1,6 +1,6 @@
 from importlib import metadata
 
-from ideagraph_research import manifest
+from idea_graph_research import manifest
 
 
 def test_manifest_is_complete():
@@ -12,4 +12,4 @@ def test_manifest_is_complete():
 
 
 def test_entry_point_is_declared():
-    assert "research" in [p.name for p in metadata.entry_points(group="ideagraph.packages")]
+    assert "research" in [p.name for p in metadata.entry_points(group="idea_graph.packages")]
