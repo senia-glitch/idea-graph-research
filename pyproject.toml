@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ideagraph-research"
+version = "0.1.0"
+description = "Пакет-скилл: исследование — конкуренты и факты из сети"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.entry-points."ideagraph.packages"]
+research = "ideagraph_research:manifest"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+ideagraph_research = ["*.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
