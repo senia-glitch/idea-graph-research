@@ -181,6 +181,24 @@ def _p_analysis_clarify(ctx, step, target) -> str:
             "Спорные места вынеси человеку через ask с вариантами единого названия.")
 
 
+# ---------------------------------------------------------------------- проверки шагов (открытые вопросы)
+
+def _checks_sphere(ctx, step) -> list[str]:
+    return [] if spheres(ctx.store) else ["Сфера не написана: нажмите «+ Сфера» вверху"]
+
+
+def _checks_competitors(ctx, step) -> list[str]:
+    records = ctx.bank(COMPETITORS).list("competitor")
+    if not records:
+        return ["Список конкурентов пуст"]
+    return [f"У конкурента «{(r['data'] or {}).get('name') or r['key']}» нет ссылки на источник" for r in records if not r["sources"]]
+
+
+def _checks_analysis(ctx, step) -> list[str]:
+    done = {r["key"] for r in ctx.bank(ANALYSIS).list("analysis")}
+    return [f"Нет анализа конкурента «{(r['data'] or {}).get('name') or r['key']}»" for r in accepted_competitors(ctx) if r["key"] not in done]
+
+
 # ---------------------------------------------------------------------- вводные и итог
 
 def prepare(ctx) -> str:
@@ -229,10 +247,13 @@ def manifest() -> dict:
             "kinds": [{"kind": SPHERE, "title": "Сфера", "color": "#e8833a"}],
             "steps": [
                 {"id": "sphere", "title": "Сфера", "question": "Напишите сферу бизнеса, подлежащего автоматизации.",
-                 "produces": [SPHERE], "needs": [], "prompts": {"clarify": _p_sphere_clarify}},
+                 "help": "Напишите сферу бизнеса одной-двумя фразами: по ней ищутся конкуренты и строятся роли. Помощник может проверить формулировку.",
+                 "produces": [SPHERE], "needs": [], "prompts": {"clarify": _p_sphere_clarify}, "checks": _checks_sphere},
                 {"id": "competitors", "title": "Конкуренты",
                  "question": "Поиск конкурентов: правьте список и утвердите его.",
-                 "produces": [], "produces_bank": COMPETITORS, "needs": ["sphere"], "research": True,
+                 "help": "Помощник найдёт реальных конкурентов и аналоги в сети (три исследователя на разных моделях). Вы правите список: "
+                         "принимаете нужных, удаляете лишних, добавляете своих. Запускать можно сколько угодно раз: новые находки дополнят список.",
+                 "checks": _checks_competitors, "produces": [], "produces_bank": COMPETITORS, "needs": ["sphere"], "research": True,
                  "research_mode": "replicate", "target_kind": SPHERE,
                  "bank": {"name": COMPETITORS, "type": "competitor", "fields": [
                      {"key": "name", "title": "Название"}, {"key": "url", "title": "Сайт"},
@@ -242,7 +263,9 @@ def manifest() -> dict:
                              "clarify": _p_competitors_clarify}},
                 {"id": "analysis", "title": "Анализ конкурентов",
                  "question": "Роли в системе, бизнес-процессы и уникальные фичи каждого конкурента.",
-                 "produces": [], "produces_bank": ANALYSIS, "needs": ["competitors"], "research": True,
+                 "help": "Для каждого конкурента из списка собираются роли, бизнес-процессы и уникальные фичи. Результат ложится в общий банк и "
+                         "подсказывает роли и сценарии следующей части.",
+                 "checks": _checks_analysis, "produces": [], "produces_bank": ANALYSIS, "needs": ["competitors"], "research": True,
                  "research_mode": "distribute", "target_kind": SPHERE,
                  "bank": {"name": ANALYSIS, "type": "analysis", "fields": [
                      {"key": "competitor", "title": "Конкурент"}, {"key": "roles", "title": "Роли", "list": True},

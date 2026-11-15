@@ -172,3 +172,20 @@ def test_sphere_clarify_prompt_and_prepare(project):
     with pytest.raises(EngineError):
         p.start("recon", step="sphere", action="suggest")                               # у шага сферы нет такого действия
     assert "Сферы: c1 «Частные клиники»" in prepare(type("C", (), {"store": p.store, "bank": p.store.bank})())
+
+
+def test_step_checks_and_help(project):
+    p = project(lambda *a, **k: None)
+    steps = {s["id"]: s for s in manifest()["stage"]["steps"]}
+    assert all(s["help"] and callable(s["checks"]) for s in steps.values())
+    state = {s["id"]: s for s in p.state()["stages"]["recon"]["steps"]}
+    assert [i["text"] for i in state["competitors"]["issues"]] == ["Список конкурентов пуст"] and state["sphere"]["issues"] == []
+    bank = p.store.bank("competitors")
+    bank.put("competitor", {"name": "Докдок", "state": "accepted"}, "human", key="a.example")
+    bank.put("competitor", {"name": "Клиника+", "state": "accepted"}, "human", sources=["u"], key="b.example")
+    state = {s["id"]: s for s in p.state()["stages"]["recon"]["steps"]}
+    assert [i["text"] for i in state["competitors"]["issues"]] == ["У конкурента «Докдок» нет ссылки на источник"]
+    assert [i["text"] for i in state["analysis"]["issues"]] == ["Нет анализа конкурента «Докдок»", "Нет анализа конкурента «Клиника+»"]
+    p.store.bank("analysis").put("analysis", {"competitor": "Докдок"}, "package:recon", key="a.example")
+    state = {s["id"]: s for s in p.state()["stages"]["recon"]["steps"]}
+    assert [i["text"] for i in state["analysis"]["issues"]] == ["Нет анализа конкурента «Клиника+»"]
