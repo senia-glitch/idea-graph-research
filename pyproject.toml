@@ -3,24 +3,24 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "idea-graph-research"
-version = "0.1.0"
-description = "Пакет-скилл: исследование — конкуренты и факты из сети"
+name = "idea-graph-recon"
+version = "0.2.0"
+description = "Этап «Разведка»: сфера, конкуренты, анализ, общий банк проекта"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = ["idea-graph-core @ git+https://github.com/senia-glitch/idea-graph-core.git"]
 
 [project.optional-dependencies]
-test = ["pytest"]
+test = ["pytest", "idea-graph-engine"]
 
 [project.entry-points."idea_graph.packages"]
-research = "idea_graph_research:manifest"
+recon = "idea_graph_recon:manifest"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-idea_graph_research = ["*.md"]
+idea_graph_recon = ["*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
