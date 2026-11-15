@@ -199,6 +199,42 @@ def _checks_analysis(ctx, step) -> list[str]:
     return [f"Нет анализа конкурента «{(r['data'] or {}).get('name') or r['key']}»" for r in accepted_competitors(ctx) if r["key"] not in done]
 
 
+# ---------------------------------------------------------------------- документ
+
+def _cell(value) -> str:
+    return " ".join(str(value or "").split()).replace("|", "/") or "—"
+
+
+def _names(items) -> str:
+    return ", ".join(str(x.get("name") if isinstance(x, dict) else x) for x in (items or []) if x) or "—"
+
+
+def document(ctx) -> str:
+    """Раздел «Разведка» для документа: сфера, список конкурентов, анализ."""
+    found = spheres(ctx.store)
+    comp = ctx.bank(COMPETITORS).list("competitor")
+    analysis = ctx.bank(ANALYSIS).list("analysis")
+    if not (found or comp or analysis):
+        return ""
+    lines = ["## Разведка", ""]
+    for card in found:
+        lines += [f"**Сфера:** {card['title']}" + (f". {card['body'].strip()}" if (card.get("body") or "").strip() else ""), ""]
+    if comp:
+        lines += ["### Конкуренты", "", "| Название | Сайт | Тип | Чем релевантен |", "|---|---|---|---|"]
+        for r in comp:
+            d = r["data"] or {}
+            mark = "" if d.get("state") == "accepted" else " (предложен)"
+            lines.append(f"| {_cell(d.get('name'))}{mark} | {_cell(d.get('url'))} | {_cell(d.get('kind'))} | {_cell(d.get('why'))} |")
+        lines.append("")
+    if analysis:
+        lines += ["### Анализ конкурентов", ""]
+        for r in analysis:
+            d = r["data"] or {}
+            lines += [f"**{_cell(d.get('competitor') or r['key'])}**", f"- роли: {_names(d.get('roles'))}",
+                      f"- процессы: {_names(d.get('processes'))}", f"- фичи: {_names(d.get('features'))}", ""]
+    return "\n".join(lines).rstrip()
+
+
 # ---------------------------------------------------------------------- вводные и итог
 
 def prepare(ctx) -> str:
@@ -241,6 +277,7 @@ def manifest() -> dict:
         "banks": {"reads": [COMPETITORS, ANALYSIS], "writes": [COMPETITORS, ANALYSIS]},
         "prepare": prepare,
         "conclude": conclude,
+        "document": document,
         "stage": {
             "roots": SPHERE,
             "propagate": False,
@@ -248,11 +285,12 @@ def manifest() -> dict:
             "steps": [
                 {"id": "sphere", "title": "Сфера", "question": "Напишите сферу бизнеса, подлежащего автоматизации.",
                  "help": "Напишите сферу бизнеса одной-двумя фразами: по ней ищутся конкуренты и строятся роли. Помощник может проверить формулировку.",
-                 "produces": [SPHERE], "needs": [], "prompts": {"clarify": _p_sphere_clarify}, "checks": _checks_sphere},
+                 "phase": "Разведка", "produces": [SPHERE], "needs": [], "prompts": {"clarify": _p_sphere_clarify}, "checks": _checks_sphere},
                 {"id": "competitors", "title": "Конкуренты",
                  "question": "Поиск конкурентов: правьте список и утвердите его.",
                  "help": "Помощник найдёт реальных конкурентов и аналоги в сети (три исследователя на разных моделях). Вы правите список: "
                          "принимаете нужных, удаляете лишних, добавляете своих. Запускать можно сколько угодно раз: новые находки дополнят список.",
+                 "phase": "Разведка", "label": "Найти конкурентов",
                  "checks": _checks_competitors, "produces": [], "produces_bank": COMPETITORS, "needs": ["sphere"], "research": True,
                  "research_mode": "replicate", "target_kind": SPHERE,
                  "bank": {"name": COMPETITORS, "type": "competitor", "fields": [
@@ -265,6 +303,7 @@ def manifest() -> dict:
                  "question": "Роли в системе, бизнес-процессы и уникальные фичи каждого конкурента.",
                  "help": "Для каждого конкурента из списка собираются роли, бизнес-процессы и уникальные фичи. Результат ложится в общий банк и "
                          "подсказывает роли и сценарии следующей части.",
+                 "phase": "Разведка", "label": "Проанализировать конкурентов",
                  "checks": _checks_analysis, "produces": [], "produces_bank": ANALYSIS, "needs": ["competitors"], "research": True,
                  "research_mode": "distribute", "target_kind": SPHERE,
                  "bank": {"name": ANALYSIS, "type": "analysis", "fields": [

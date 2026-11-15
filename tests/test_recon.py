@@ -119,9 +119,8 @@ def test_gate_then_analysis_distributes_one_task_per_competitor(project):
 
     p = project(script)
     bank = p.store.bank("competitors")
-    for name, key, state in (("А", "a.example", "proposed"), ("Б", "b.example", "proposed"), ("В", "c.example", "proposed")):
+    for name, key, state in (("А", "a.example", "accepted"), ("Б", "b.example", "accepted"), ("В", "c.example", "accepted")):
         bank.put("competitor", {"name": name, "url": "https://" + key, "state": state}, "package:recon", key=key)
-    p.approve_step("recon", "competitors", accept_all=True)
     p.store.bank("competitors").put("competitor", {"name": "Г", "url": "https://d.example", "state": "proposed"}, "package:recon", key="d.example")
     p.start("recon", step="analysis", action="suggest")
     run = wait(p, ("finished", "error"))
@@ -189,3 +188,17 @@ def test_step_checks_and_help(project):
     p.store.bank("analysis").put("analysis", {"competitor": "Докдок"}, "package:recon", key="a.example")
     state = {s["id"]: s for s in p.state()["stages"]["recon"]["steps"]}
     assert [i["text"] for i in state["analysis"]["issues"]] == ["Нет анализа конкурента «Клиника+»"]
+
+
+def test_document_has_sphere_competitors_and_analysis(project):
+    from idea_graph_recon import document
+    p = project(lambda *a, **k: None)
+    ctx = type("C", (), {"store": p.store, "bank": p.store.bank})()
+    assert document(ctx).startswith("## Разведка") and "**Сфера:** Частные клиники. Запись пациентов" in document(ctx)
+    p.store.bank("competitors").put("competitor", {"name": "Докдок", "url": "https://dd.example", "kind": "прямой", "why": "запись | онлайн",
+                                                   "state": "proposed"}, "package:recon", key="dd.example")
+    p.store.bank("analysis").put("analysis", {"competitor": "Докдок", "roles": [{"name": "Пациент"}], "processes": [{"name": "Запись"}],
+                                              "features": []}, "package:recon", key="dd.example")
+    text = document(ctx)
+    assert "| Докдок (предложен) | https://dd.example | прямой | запись / онлайн |" in text
+    assert "**Докдок**" in text and "- роли: Пациент" in text and "- процессы: Запись" in text and "- фичи: —" in text
